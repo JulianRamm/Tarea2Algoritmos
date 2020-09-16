@@ -21,7 +21,7 @@ public class OverlapGraph implements RawReadProcessor {
 	private int minOverlap;
 	private Map<String,Integer> readCounts = new HashMap<>();
 	private Map<String,ArrayList<ReadOverlap>> overlaps = new HashMap<>();
-	
+	private HashMap<String, Boolean> hasPredecesors = new HashMap<>();
 	/**
 	 * Creates a new overlap graph with the given minimum overlap
 	 * @param minOverlap Minimum overlap
@@ -37,12 +37,7 @@ public class OverlapGraph implements RawReadProcessor {
 	public void processRead(RawRead read) {
 		String sequence = read.getSequenceString();
 		ArrayList<ReadOverlap> sufixs = new ArrayList<>();
-		ArrayList<ReadOverlap> prefixs = new ArrayList<>();
-		Set<String> set1 = readCounts.keySet();
-		Iterator<String> iter1 = set1.iterator();
 		Iterator<String> iter2 = overlaps.keySet().iterator();
-		String prefix = sequence.substring(0, minOverlap);
-		String sufix = sequence.substring(sequence.length()-minOverlap);
 		//TODO: Paso 1. Agregar la secuencia al mapa de conteos si no existe.
 		if(readCounts.containsKey(sequence)) {
 			readCounts.put(sequence, readCounts.get(sequence)+1);
@@ -50,6 +45,7 @@ public class OverlapGraph implements RawReadProcessor {
 		//Si ya existe, solo se le suma 1 a su conteo correspondiente y no se deben ejecutar los pasos 2 y 3
 		else {
 			readCounts.put(sequence, 1);
+			hasPredecesors.put(sequence, false);
 			//TODO: Paso 2. Actualizar el mapa de sobrelapes con los sobrelapes en los que la secuencia nueva sea predecesora de una secuencia existente
 			//2.1 Crear un ArrayList para guardar las secuencias que tengan como prefijo un sufijo de la nueva secuenci
 			//2.2 Recorrer las secuencias existentes para llenar este ArrayList creando los nuevos sobrelapes que se encuentren.		
@@ -71,6 +67,7 @@ public class OverlapGraph implements RawReadProcessor {
 				int ova = getOverlapLength(st, sequence);
 				if(ova>=minOverlap) {
 					ArrayList<ReadOverlap> readsO = overlaps.get(st);
+					hasPredecesors.put(sequence, true);
 					overlaps.put(st, readsO);
 				}
 			}
@@ -85,14 +82,18 @@ public class OverlapGraph implements RawReadProcessor {
 	private int getOverlapLength(String sequence1, String sequence2) {
 		// TODO Implementar metodo
 		int res = 0;
-		int minO = 2;
+		int minO = 1;
 		String prefix = sequence2.substring(0, minO);
-		String sufix = sequence1.substring(sequence1.length()-minO);
-		while(sufix.equals(prefix)) {
+		int sifixInd = sequence1.indexOf(prefix,1);
+		if(sifixInd>=1) {
 			res++;
-			minO++;
-			prefix = sequence2.substring(0, minO);
-			sufix = sequence1.substring(sequence1.length()-minO);
+			String sufix = sequence1.substring(sifixInd, sifixInd + minO);
+			while(sufix.equals(prefix)&& (sifixInd + minO + 1) <= sequence1.length()) {
+				res++;
+				minO++;
+				prefix = sequence2.substring(0, minO);
+				sufix = sequence1.substring(sifixInd, sifixInd + minO);
+			}
 		}
 		return res;
 	}
@@ -121,7 +122,7 @@ public class OverlapGraph implements RawReadProcessor {
 	 * observed as many times as the corresponding array index. Position zero should be equal to zero
 	 */
 	public int[] calculateAbundancesDistribution() {
-		int[] abundances = new int[minOverlap*20];
+		int[] abundances = new int[100];
 		Set<String> set1 = readCounts.keySet();
 		Iterator<String> iter = set1.iterator();
 		while(iter.hasNext()) {
@@ -136,7 +137,7 @@ public class OverlapGraph implements RawReadProcessor {
 	 * sequences having as many successors as the corresponding array index.
 	 */
 	public int[] calculateOverlapDistribution() {
-		int[] distribution = new int[60];
+		int[] distribution = new int[2000];
 		Set<String> set1 = overlaps.keySet();
 		Iterator<String> iter = set1.iterator();
 		while(iter.hasNext()) {
@@ -151,6 +152,14 @@ public class OverlapGraph implements RawReadProcessor {
 	 */
 	public String getSourceSequence () {
 		// TODO Implementar metodo recorriendo las secuencias existentes y buscando una secuencia que no tenga predecesores
+		Set<String> set1 = overlaps.keySet();
+		Iterator<String> iter = set1.iterator();
+		while(iter.hasNext()) {
+			String mentry = iter.next();
+			if(hasPredecesors.get(mentry)==false) {
+				return mentry;
+			}
+		}
 		return null;
 	}
 	
